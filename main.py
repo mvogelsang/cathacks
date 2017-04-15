@@ -7,23 +7,12 @@ import googlefinance
 import requests
 
 
-# # note, for convenience of writing many separate query functions
-# # the connection is defined globally
-# dbConn = sqlite3.connect("./LouData.db", detect_types=sqlite3.PARSE_DECLTYPES);
+# note, for convenience of writing many separate query functions
+# the connection is defined globally
+dbConn = sqlite3.connect("./stockinfo.db", detect_types=sqlite3.PARSE_DECLTYPES);
 # dbConn.row_factory = sqlite3.Row
-# dbCursor = dbConn.cursor()
+dbCursor = dbConn.cursor()
 # a66709521106364d780bac5e6ac6f66f4b184206IH3msJM7XveroPUUFLLnn5WIa
-
-def getStockList():
-    # get get stock array
-    with open("./stocks.dat", "rb") as input_file:
-        stocks = input_file.readlines()
-    return stocks
-
-def getRecentPrices():
-    with open("./benchmarks.dat", "rb") as input_file:
-        prices = input_file.readlines()
-    return prices
 
 def sendText(msg, number):
     response = requests.post('https://textbelt.com/text', {
@@ -35,12 +24,27 @@ def sendText(msg, number):
     print response.content
 
 def main():
-    # stocks = getStockList()
-    # recentPrices = getRecentPrices()
-    sendText('waddup hoe', 8594947422)
+    # get stock tickers
+    dbCursor.execute('select ticker from stockdata;')
+    temp = dbCursor.fetchall()
+    tickers = list(sum(temp, ()))
 
+    # get most recent prices
+    priceInfo = googlefinance.getQuotes(tickers)
 
+    # update recent prices
+    for p in priceInfo:
+        print p['LastTradePrice'] + ' ' + p['StockSymbol']
+        dbCursor.execute("update stockdata set currentPrice = ? where ticker = ?", (p['LastTradePrice'], p['StockSymbol']) )
+    dbConn.commit()
 
+    # get all of the stock information
+    dbCursor.execute("select * from stockdata")
+    stored = dbCursor.fetchall()
+
+    # this is some test stuff
+    # sendText('waddup', 8594947422)
+    # subprocess.call(["csvsql", "--db", "sqlite:///./stockinfo.db", "--insert", "./stockdata.init"])
 
 
 
