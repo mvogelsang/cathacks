@@ -23,6 +23,13 @@ def sendText(msg, number):
 
     print response.content
 
+def split2len(s, n):
+    def _f(s, n):
+        while s:
+            yield s[:n]
+            s = s[n:]
+    return list(_f(s, n))
+
 def main():
     # get stock tickers
     dbCursor.execute('select ticker from stockdata;')
@@ -34,13 +41,35 @@ def main():
 
     # update recent prices
     for p in priceInfo:
-        print p['LastTradePrice'] + ' ' + p['StockSymbol']
         dbCursor.execute("update stockdata set currentPrice = ? where ticker = ?", (p['LastTradePrice'], p['StockSymbol']) )
     dbConn.commit()
 
     # get all of the stock information
-    dbCursor.execute("select * from stockdata")
-    stored = dbCursor.fetchall()
+    dbCursor.execute("select * from stockdata where abs(trackprice - currentprice)*1.0/(trackprice*1.0) > .15")
+    alertStocks = dbCursor.fetchall()
+
+    # Verify that results were found
+    dbCursor.execute("select count(*) from stockdata where abs(trackprice - currentprice)*1.0/(trackprice*1.0) > .15")
+    count = dbCursor.fetchall()
+    if(count[0][0] > 0):
+
+        # build the message
+        msg = 'STOCK ALERTS:\n'
+        for a in alertStocks:
+            msg = msg + ' ' + str(a[0]) + ' ' + str(a[2]) + '\n'
+
+        print 'sending alerts...'
+        print msg
+        print ''
+
+        # split into sendable chunks
+        chunks = split2len(msg, 250)
+        print chunks
+
+        # send the chunks
+        for chunk in chunks:
+            sendText(chunk, 8594947422)
+
 
     # this is some test stuff
     # sendText('waddup', 8594947422)
